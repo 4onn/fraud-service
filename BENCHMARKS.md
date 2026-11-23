@@ -44,5 +44,6 @@ Planted bug (`hour <= 6`) was caught by `test_night_flag_boundaries[6-0]` (unit)
 image-smoke is ~4x faster on the second run because Docker layers are cached
 between runs (`cache-from: type=gha`): the dependency layer is reused.
 
-A bad PR (layer violation + `hour <= 6`) was blocked: `lint` failed on the import
-contract and `test` failed on `test_night_flag_boundaries[6-0]`; `image-smoke` was skipped.
+A bad PR (layer violation + `hour <= 6`) was blocked: `lint` failed at Ruff (I001: the
+out-of-layer import broke the import order, so the later import-contract step never ran) and
+`test` failed on `test_night_flag_boundaries[6-0]`; `image-smoke` and `publish` were skipped.
