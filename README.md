@@ -1,103 +1,160 @@
-# fraud-service · SDA-AIE-113 labs
+# Raqib (رقيب) · fraud-scoring service
 
-The hands-on project of **SDA-AIE-113 · Software Engineering Practices for AI Systems**
-(SDAIA Academy). You take a fraud-scoring model from a notebook to a tested, containerised
-service with a CI/CD pipeline, one lab at a time, with an AI coding agent as your tutor.
+A containerised machine-learning service that scores card transactions for fraud risk
+and answers **allow**, **review** or **block**.
 
-Workshop site: https://aie113.ibrahimalshehri.sa · Arabic: https://aie113.ibrahimalshehri.sa/ar/ · [النسخة العربية من هذا الدليل](#بالعربية)
+Built in the training program **SDA-AIE-113 · Software Engineering Practices for AI Systems**
+at [SDAIA Academy](https://github.com/SDAIAAcademy), November 2026.
 
-## 1. Fork and open
+![ci](https://github.com/4onn/fraud-service/actions/workflows/ci.yml/badge.svg)
 
-1. Click **Fork** at the top of this page. Keep the name `fraud-service`.
-2. Clone your fork and set it up (Python 3.12 or newer):
+## What it does
 
-       git clone https://github.com/YOUR-USERNAME/fraud-service.git
-       cd fraud-service
-       python -m venv .venv
-       source .venv/bin/activate          # Windows PowerShell: .venv\Scripts\Activate.ps1
-       pip install -e ".[dev]"
+A Saudi digital-payments provider needs every card transaction scored for fraud before it is
+approved. Client systems (mobile app, core banking, partner integrations) send one transaction
+to `POST /v1/predict`; the service returns a fraud probability between 0 and 1 and a decision:
 
-3. Open the folder in your coding agent: Claude Code, GitHub Copilot (agent mode), Cursor,
-   Codex or similar. They all read [AGENTS.md](AGENTS.md), which tells the agent to teach you
-   as you go instead of silently writing the code.
-
-## 2. Pick a lab and say one sentence
-
-    Read AGENTS.md and labs/lab-2b.md, then teach me Lab 2b one step at a time.
-
-Each lab guide also lists a prompt per step, if you prefer to drive.
-
-| Lab | What you build | Starting point |
-|---|---|---|
-| [Lab 1](labs/lab-1.md) | Refactor the notebook into a clean package | `lab1-start` |
-| [Lab 2a](labs/lab-2a.md) | Build the prediction API | `lab2a-start` |
-| [Lab 2b](labs/lab-2b.md) | Harden the API | `lab2b-start` |
-| [Lab 3](labs/lab-3.md) | Containerise the fraud service | `lab3-start` |
-| [Lab 4](labs/lab-4.md) | Build the test suite | `lab4-start` |
-| [Lab 5](labs/lab-5.md) | Build the pipeline | `lab5-start` |
-| [Lab 6](labs/lab-6.md) | Harden config, secrets and logs | `lab6-start` |
-
-## 3. Start at a later lab, or catch up
-
-Each lab's starting point is a tag. To bring your project to one (for example Lab 3), ask
-your agent, or run:
-
-    git remote add upstream https://github.com/snow10100/fraud-service.git    # once
-    git fetch upstream --tags
-    git checkout lab3-start -- .
-    git commit -m "chore: start from the Lab 3 starting point"
-
-Your own extra files, such as `BENCHMARKS.md`, are kept.
-
-## What is in here
-
-| Path | What |
+| Probability | Decision |
 |---|---|
-| `src/fraud_service/` | The service you build, layer by layer |
-| `legacy/notebook_v1.py` | The inherited script with a silent bug: Lab 1 starts here |
-| `data/`, `models/`, `payloads/` | Synthetic transactions, the trained model, request bodies (no real customer data) |
-| `labs/lab-*.md`, `labs/ar/` | One guide per lab, in English and Arabic |
-| `labs/handouts/<lab>/` | The exact files each lab hands out, at their project paths |
-| `AGENTS.md` | Instructions for your coding agent (`CLAUDE.md` and `.github/copilot-instructions.md` point to it) |
+| ≥ 0.85 (configurable) | `block` |
+| 0.70 to 0.85 | `review` (manual review band) |
+| < 0.70 | `allow` |
 
-If scoring seems to hang on a machine with many cores (common under WSL), run
-`export OMP_NUM_THREADS=1` (PowerShell: `$env:OMP_NUM_THREADS=1`) and try again.
+The model is a scikit-learn gradient-boosting pipeline (`fraud_xgb v3.2.0`).
+**All data in this repository is synthetic.** No real customer data is used.
 
----
+## Architecture
 
-<div dir="rtl" lang="ar">
+```
+src/fraud_service/
+├── domain/     entities.py (Transaction, to_features), policies.py (decide)   stdlib + pydantic only
+├── service/    interfaces.py (Model protocol), scorer.py (FraudScorer)       no frameworks
+├── adapters/   sklearn_model.py   the ONLY file that imports joblib / pandas / scikit-learn
+├── api/        app.py, routes.py, schemas.py   FastAPI, the composition root
+├── batch.py    batch entrypoint (CSV in, CSV out)
+├── config.py   typed settings, validated at start-up
+└── logging_setup.py   JSON logs to stdout, secret masking
+```
 
-## بالعربية
+Imports point inward only: `api → adapters → service → domain`. The rule is enforced by
+`import-linter` (`lint-imports`) in the pipeline, so a violation fails the build.
+The service depends on a `Model` protocol rather than on scikit-learn, so the model can be
+swapped (ONNX, a remote model server) by adding one adapter, and tests run with a fake model.
 
-المشروع العملي لورشة **ممارسات هندسة البرمجيات لأنظمة الذكاء الاصطناعي (SDA-AIE-113)** في
-أكاديمية سدايا. تنقل نموذج رصد احتيال من دفتر (notebook) إلى خدمة مختبرة داخل حاوية، مع خط
-أتمتة CI/CD، مختبرًا تلو الآخر، ويكون وكيل البرمجة الذكي معلّمك أثناء العمل.
+## Run it
 
-1. اضغط **Fork** أعلى الصفحة، واترك الاسم `fraud-service`.
-2. انسخ المستودع إلى جهازك وثبّت المتطلبات (الأوامر في القسم 1 أعلاه، وتحتاج Python 3.12 أو أحدث).
-3. افتح المجلد في وكيل البرمجة الذي تستخدمه. الوكيل يقرأ الملف AGENTS.md الذي يطلب منه أن يشرح لك كل خطوة بدل أن يكتب الكود بصمت.
-4. اختر مختبرًا واكتب للوكيل جملة واحدة، مثل:
+### With Docker (recommended)
 
-</div>
+    docker compose up --build -d
+    docker compose ps                      # wait until fraud-api shows (healthy)
+    curl -s localhost:8000/v1/ready
+    curl -s localhost:8000/v1/predict -H "content-type: application/json" -d @payloads/sample.json
 
-    Read AGENTS.md and labs/ar/lab-2b.md, then teach me Lab 2b one step at a time. Reply in Arabic.
+Expected:
 
-<div dir="rtl" lang="ar">
+    {"transaction_id":"TXN-2026-00042","fraud_probability":0.62614,"decision":"allow","model_version":"v3.2.0","trace_id":"..."}
 
-| المختبر | ما تبنيه | نقطة البداية |
+Stop with `docker compose down`.
+
+Or pull the published image instead of building it:
+
+    docker pull ghcr.io/4onn/fraud-service:main      # Apple silicon: add --platform linux/amd64
+
+### Without Docker (Python 3.12+)
+
+    python -m venv .venv && source .venv/bin/activate
+    pip install -e ".[dev]"
+    echo "FRAUD_MODEL_PATH=models/fraud_xgb_v3.joblib" > .env
+    uvicorn fraud_service.api.app:create_app --factory
+
+### Batch scoring
+
+    python -m fraud_service.batch                    # data/transactions_sample.csv -> scored.csv
+    python scripts/check_golden.py scored.csv        # 5,000/5,000 rows match the golden scores
+
+## API
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /v1/predict` | Score one transaction |
+| `GET /v1/health` | Liveness: the process is up (no I/O) |
+| `GET /v1/ready` | Readiness: the model is loaded; `503` with `Retry-After` until then |
+
+Interactive documentation: http://localhost:8000/docs
+
+The request schema is strict (`extra="forbid"`, `amount_sar > 0`, known `channel` values), so a
+bad body is rejected before it reaches the model. Every response carries `X-Trace-Id`,
+`X-Model-Version` and `X-Response-Time-Ms`.
+
+Every error uses one envelope and never echoes the rejected input or a stack trace:
+
+    {"error": {"code": "INVALID_REQUEST", "message": "Request body failed validation",
+               "trace_id": "5048862c21904f3e", "details": [{"field": "amount_sar", "problem": "..."}]}}
+
+| Code | Status | When |
 |---|---|---|
-| [المختبر 1](labs/ar/lab-1.md) | إعادة هيكلة الدفتر إلى حزمة نظيفة | `lab1-start` |
-| [المختبر 2أ](labs/ar/lab-2a.md) | بناء واجهة التنبؤ | `lab2a-start` |
-| [المختبر 2ب](labs/ar/lab-2b.md) | تقوية الواجهة | `lab2b-start` |
-| [المختبر 3](labs/ar/lab-3.md) | وضع خدمة رصد الاحتيال في حاوية | `lab3-start` |
-| [المختبر 4](labs/ar/lab-4.md) | بناء مجموعة الاختبارات | `lab4-start` |
-| [المختبر 5](labs/ar/lab-5.md) | بناء خط الأتمتة | `lab5-start` |
-| [المختبر 6](labs/ar/lab-6.md) | تحصين الإعدادات والأسرار والسجلات | `lab6-start` |
+| `INVALID_REQUEST` | 422 | The body fails the schema |
+| `NOT_FOUND` | 404 | Unknown path |
+| `MODEL_UNAVAILABLE` | 503 | The model is not loaded yet (`Retry-After` header) |
+| `HTTP_ERROR` | other 4xx/5xx | Any other HTTP error |
+| `INTERNAL_ERROR` | 500 | Unexpected failure; details are only in the server log, under the same `trace_id` |
 
-لتبدأ من مختبر لاحق أو تلحق بالمجموعة، اطلب من وكيلك أن ينقل مشروعك إلى الوسم (tag) الخاص
-بذلك المختبر، أو نفّذ الأوامر في القسم 3 أعلاه. ملفاتك الخاصة مثل `BENCHMARKS.md` تبقى كما هي.
+## Configuration
 
-إذا بدا حساب الدرجات متوقفًا على جهاز كثير الأنوية (يحدث كثيرًا مع WSL)، نفّذ
-`export OMP_NUM_THREADS=1` (وفي PowerShell: `$env:OMP_NUM_THREADS=1`) ثم أعد المحاولة.
+All settings live in one typed class (`config.py`) and are read from environment variables
+with the `FRAUD_` prefix (or a local `.env` file). A missing or invalid value stops the service
+at start-up with a clear message.
 
-</div>
+| Variable | Default | Meaning |
+|---|---|---|
+| `FRAUD_MODEL_PATH` | required | Path to the model bundle; the file must exist |
+| `FRAUD_BLOCK_THRESHOLD` | 0.85 | Scores at or above this are blocked (0.5 to 0.99) |
+| `FRAUD_LOG_LEVEL` | INFO | DEBUG, INFO, WARNING or ERROR |
+| `FRAUD_GIT_SHA` | dev | Injected at build time; shown by `/v1/health` |
+| `FRAUD_REDIS_URL` | redis://localhost:6379/0 | Feature cache |
+| `FRAUD_REGISTRY_TOKEN` | none | Secret; only from the platform's secret store |
+
+Secrets are never committed. `configs/settings.example.env` documents every setting without
+real values; `.env` is git-ignored and excluded from the image by `.dockerignore`.
+Logs are JSON on stdout, in UTC, with `trace_id` and `model_version`; sensitive keys are masked
+and no personal data is logged. See [INCIDENT.md](INCIDENT.md) for the secret-leak runbook.
+
+## Tests
+
+    pytest -m "not slow"        # every commit: 67 tests in about 1 s, branch coverage 100% (gate 80%)
+    pytest                      # everything, including the golden-file test (~9 s)
+
+| Level | What it checks |
+|---|---|
+| Unit (16) | Decision bands at their exact boundaries, feature logic (night flag at hour 6), scorer wiring, with a fake model |
+| Integration (46) | The HTTP contract through `TestClient`; all 40 bodies in `payloads/malformed/` are rejected; readiness and error envelope |
+| Behavioural | Against the real model: the score does not change with merchant casing or IDs (invariance); a much larger amount never looks safer (direction); all 5,000 golden scores reproduce |
+
+## Pipeline
+
+`.github/workflows/ci.yml` runs on every pull request and on `main`:
+
+1. `lint` (ruff, mypy, import contract) and `test` (fast suite + coverage) in parallel
+2. `image-smoke`: builds the image, starts it, waits for readiness, sends a real request,
+   checks the container runs as `appuser`
+3. `publish` (only on `main`): pushes to `ghcr.io/4onn/fraud-service`, tagged with the
+   commit SHA and `main`
+
+`nightly.yml` runs the full suite, including the golden-file test, every night.
+`main` is protected: changes arrive only through pull requests with `lint`, `test` and
+`image-smoke` green. [Pull request #1](https://github.com/4onn/fraud-service/pull/1) shows a
+change that was blocked (a layer violation and the `hour <= 6` bug) and then fixed.
+
+## Benchmarks and decisions
+
+See [BENCHMARKS.md](BENCHMARKS.md) (image sizes, build times, latency, memory, CI timings)
+and [DECISIONS.md](DECISIONS.md) (five engineering decisions and the reasons behind them).
+
+## Workshop material
+
+The lab guides used to build this service are in [`labs/`](labs/) (English and Arabic).
+Workshop site: https://aie113.ibrahimalshehri.sa
+
+## Author
+
+Nawaf Alzomaia · [github.com/4onn](https://github.com/4onn)
