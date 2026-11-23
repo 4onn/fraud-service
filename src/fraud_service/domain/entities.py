@@ -5,7 +5,7 @@ Rules for this file:
 - no I/O, no framework types, no ML library types
 """
 import math
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator
@@ -44,12 +44,16 @@ class Transaction(BaseModel):
         One place to compare against the training code: the primary
         defence against training/serving skew.
         """
+        # The model was trained on UTC hours. A client may send any offset
+        # (06:30+03:00 is 03:30 UTC), so normalise before reading the hour.
+        # A naive timestamp (batch CSV, tests) is taken to be UTC already.
+        ts = self.timestamp if self.timestamp.tzinfo is None else self.timestamp.astimezone(UTC)
         return FeatureVector(values={
             "amount_log": round(math.log1p(self.amount_sar), 6),
             "channel": self.channel.value,
             "mcc": self.merchant_category,
-            "hour_of_day": self.timestamp.hour,
-            "is_night": int(self.timestamp.hour < 6),
+            "hour_of_day": ts.hour,
+            "is_night": int(ts.hour < 6),
         })
 
 
