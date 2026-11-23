@@ -31,3 +31,18 @@ Load test: `python scripts/loadtest.py` (2000 requests, 25 concurrent clients)
 
 Branch coverage: 100% (gate: 80%).
 Planted bug (`hour <= 6`) was caught by `test_night_flag_boundaries[6-0]` (unit) and `test_golden_scores` (182 rows, behavioural).
+
+## CI pipeline (GitHub Actions, ubuntu-latest)
+
+| Job | First run on main | Latest run on main |
+|---|---|---|
+| lint | 34s | 42s |
+| test | 48s | 49s |
+| image-smoke | 116s | 30s |
+| publish | 27s | 21s |
+
+image-smoke is ~4x faster on the second run because Docker layers are cached
+between runs (`cache-from: type=gha`): the dependency layer is reused.
+
+A bad PR (layer violation + `hour <= 6`) was blocked: `lint` failed on the import
+contract and `test` failed on `test_night_flag_boundaries[6-0]`; `image-smoke` was skipped.
