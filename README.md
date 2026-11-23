@@ -82,8 +82,8 @@ Or pull the published image instead of building it:
 
 Interactive documentation: http://localhost:8000/docs
 
-The request schema is strict (`extra="forbid"`, `amount_sar > 0`, known `channel` values), so a
-bad body is rejected before it reaches the model. Every response carries `X-Trace-Id`,
+The request schema is strict (`extra="forbid"`, `amount_sar > 0` and a JSON number, known `channel`
+values, a timestamp with a timezone), so a bad body is rejected before it reaches the model. Every response carries `X-Trace-Id`,
 `X-Model-Version` and `X-Response-Time-Ms`.
 
 Every error uses one envelope and never echoes the rejected input or a stack trace:
@@ -121,13 +121,13 @@ and no personal data is logged. See [INCIDENT.md](INCIDENT.md) for the secret-le
 
 ## Tests
 
-    pytest -m "not slow"        # every commit: 67 tests in about 1 s, branch coverage 100% (gate 80%)
+    pytest -m "not slow"        # every commit: 82 tests in about 1 s, branch coverage gate 80%
     pytest                      # everything, including the golden-file test (~9 s)
 
 | Level | What it checks |
 |---|---|
-| Unit (16) | Decision bands at their exact boundaries, feature logic (night flag at hour 6), scorer wiring, with a fake model |
-| Integration (46) | The HTTP contract through `TestClient`; all 40 bodies in `payloads/malformed/` are rejected; readiness and error envelope |
+| Unit (27) | Decision bands at their exact boundaries, feature logic (night flag at hour 6, UTC normalisation), scorer wiring with a fake model, typed settings, the strict wire contract |
+| Integration (50) | The HTTP contract through `TestClient`; all 44 bodies in `payloads/malformed/` are rejected; readiness and error envelope |
 | Behavioural | Against the real model: the score does not change with merchant casing or IDs (invariance); a much larger amount never looks safer (direction); all 5,000 golden scores reproduce |
 
 ## Pipeline
@@ -144,6 +144,41 @@ and no personal data is logged. See [INCIDENT.md](INCIDENT.md) for the secret-le
 `main` is protected: changes arrive only through pull requests with `lint`, `test` and
 `image-smoke` green. [Pull request #1](https://github.com/4onn/fraud-service/pull/1) shows a
 change that was blocked (a layer violation and the `hour <= 6` bug) and then fixed.
+
+## Extension: stricter firewall
+
+By default pydantic is lenient: it turned `"amount_sar": "250"` into `250.0`, `true` into `1.0`,
+and accepted `"2026-07-05T03:30:00"` with no timezone. For a fraud service each of these is a
+silent guess, so the contract now rejects them with `422 INVALID_REQUEST`:
+
+| Input | Before | Now |
+|---|---|---|
+| `"amount_sar": "249.99"` (string) | coerced to 249.99 | rejected (`strict=True`) |
+| `"amount_sar": true` (boolean) | coerced to 1.0 | rejected (`strict=True`) |
+| `"timestamp": "2026-07-05T03:30:00"` (no timezone) | accepted as naive | rejected (`AwareDatetime`) |
+| `"timestamp": "2026-07-05"` (date only) | accepted as midnight | rejected (`AwareDatetime`) |
+| `"amount_sar": 250` (integer number) | accepted | still accepted |
+| `"timestamp": "2026-07-05T06:30:00+03:00"` | hour read as 06 | accepted, normalised to 03:30 UTC |
+
+The last row is a skew fix found while writing the tests: the model was trained on UTC hours,
+but a client in Riyadh sending `+03:00` would have had `hour_of_day` and `is_night` computed
+in local time. `to_features()` now converts to UTC first; naive timestamps (batch CSV) are
+treated as UTC, so the golden file still reproduces 5,000/5,000.
+
+Try it:
+
+    docker compose up --build -d
+    for f in amount_numeric_string amount_boolean timestamp_no_timezone timestamp_date_only; do
+      curl -s localhost:8000/v1/predict -H "content-type: application/json" \
+           -d @payloads/malformed/$f.json; echo
+    done
+
+Covered by four new bodies in `payloads/malformed/` (integration) and `tests/unit/test_schemas.py`.
+
+**Contract change note.** Tightening a field is a breaking change for any client that relied on
+the coercion. It stays in `/v1` because the service has no production consumers yet. After
+launch, the same change would ship as `/v2`, run side by side with `/v1`, and `/v1` would be
+retired with `Deprecation` and `Sunset` headers once its traffic reaches zero.
 
 ## Benchmarks and decisions
 
