@@ -145,6 +145,16 @@ and no personal data is logged. See [INCIDENT.md](INCIDENT.md) for the secret-le
 `image-smoke` green. [Pull request #1](https://github.com/4onn/fraud-service/pull/1) shows a
 change that was blocked (a layer violation and the `hour <= 6` bug) and then fixed.
 
+![Blocked pull request: lint and test failed, image-smoke and publish skipped](docs/img/blocked-pr-checks.png)
+
+| `lint` caught the layer violation | `test` caught the night-flag bug |
+|---|---|
+| ![ruff I001 on the out-of-layer import](docs/img/blocked-pr-lint.png) | ![test_night_flag_boundaries failed at hour 6](docs/img/blocked-pr-test.png) |
+
+Note: `# noqa: F401` hid the unused import from Ruff's F401 rule, but Ruff's import-order rule
+still flagged it. Had it not, the next step (`lint-imports`) would have rejected the
+`service → api` import as a broken layer contract.
+
 ## Extension: stricter firewall
 
 By default pydantic is lenient: it turned `"amount_sar": "250"` into `250.0`, `true` into `1.0`,
