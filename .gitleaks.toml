@@ -1,0 +1,10 @@
+# Gitleaks configuration: the default rule set, plus one reviewed allowlist.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Reviewed exceptions"
+paths = [
+  # Workshop lab guides quote a deliberately fake token for the secret-leak drill.
+  '''^labs/''',
+]
