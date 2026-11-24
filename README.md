@@ -219,6 +219,7 @@ and [DECISIONS.md](DECISIONS.md) (five engineering decisions and the reasons beh
 The lab guides used to build this service are in [`labs/`](labs/) (English and Arabic).
 Workshop site: https://aie113.ibrahimalshehri.sa
 
-## Author
+## Authors
 
-Nawaf Alzomaia · [github.com/4onn](https://github.com/4onn)
+- Nawaf Alzomaia · [github.com/4onn](https://github.com/4onn)
+- Abdullah Alwohibi · [github.com/wahibi404](https://github.com/wahibi404)

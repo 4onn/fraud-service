@@ -1,11 +1,11 @@
 # Project journal · سجل المشروع
 
-**Group · المجموعة:** Nawaf Alzomaia (individual). AI coding agent: Claude (Opus 5.5) in the Claude app,
-working on my Mac through the desktop app; I ran every command myself in the Terminal.
+**Group · المجموعة:** نواف الزميع · عبدالله الوهيبي
+**AI coding agent · الوكيل:** Claude (Opus 5.5) in the Claude app; we ran every command ourselves in the Terminal.
 **Track · المسار:** fraud (built on the workshop's fraud-scoring labs)
 **Repository · المستودع:** https://github.com/4onn/fraud-service
 
-> هذه المداخل كتب الوكيل مسودتها مما حدث فعلًا في الجلسات، وراجعتها وعدّلتها بنفسي.
+> هذه المداخل كتب الوكيل مسودتها مما حدث فعلًا في الجلسات، وراجعناها وعدّلناها بأنفسنا.
 
 ---
 
@@ -60,7 +60,7 @@ working on my Mac through the desktop app; I ran every command myself in the Ter
 - الكود القديم: `4,818/5,000 rows match`. كل الصفوف الغلط وقتها الساعة 06 UTC.
 - السبب: التدريب يستخدم `hour < 6` والتنبؤ يستخدم `hour <= 6` (training/serving skew).
 - بعد إعادة البناء: `python -m fraud_service.batch` ثم `check_golden.py`: **5,000/5,000** ✅
-- بنيت طبقات الـ domain والـ service بيدي في فرع تدريب (`lab1-practice`) لأفهمها.
+- بنينا طبقات الـ domain والـ service بأيدينا في فرع تدريب (`lab1-practice`) لنفهمها.
 - `grep` على استيرادات الـ service: لا sklearn ولا pandas ولا joblib.
 
 **What surprised us or went wrong · ما فاجأنا أو ما تعثرنا فيه**
@@ -87,7 +87,7 @@ working on my Mac through the desktop app; I ran every command myself in the Ter
 - `api/app.py`: تحميل النموذج مرة وحدة عند التشغيل، warm-up، middleware للـ trace id، ومعالجات أخطاء بغلاف واحد.
 - `api/routes.py`: `POST /v1/predict` و`GET /v1/health` و`GET /v1/ready`.
 - `config.py`: إعدادات بأنواع محددة.
-(Labs 2a and 2b came from the workshop's reference starting point, `lab3-start`; I studied them afterwards.)
+(Labs 2a and 2b came from the workshop's reference starting point, `lab3-start`; we studied them afterwards.)
 
 **What we checked, and what we saw · ما تحققنا منه وما رأيناه**
 - طلب صحيح: `fraud_probability 0.62614, decision allow`.
@@ -181,7 +181,7 @@ pipeline يفحص كل تغيير ويبني الصورة ويختبرها وي�
 
 **What surprised us or went wrong · ما فاجأنا أو ما تعثرنا فيه**
 - الـ Actions كانت متوقفة لأن المستودع fork، فعّلناها يدويًا.
-- خيار "Require approvals" منع الدمج لأني أشتغل لحالي، فشلناه.
+- خيار "Require approvals" منع الدمج لأنه ما كان فيه مراجع ثاني على المستودع وقتها، فشلناه.
 - `# noqa: F401` أخفى الاستيراد عن قاعدة وحدة، لكن قاعدة ترتيب الاستيرادات مسكته.
 
 **How we would explain this stage to a colleague · كيف نشرح هذه المرحلة لزميل**
@@ -210,7 +210,7 @@ pipeline يفحص كل تغيير ويبني الصورة ويختبرها وي�
 **What we checked, and what we saw · ما تحققنا منه وما رأيناه**
 - `FRAUD_MODEL_PATH=/nope`: الخدمة رفضت تشتغل برسالة `model artefact not found: /nope`.
 - من `service.log` فقط: median latency = 55.7ms، وكل أحداث الطلب `my-trace-1` (حدثين بنفس الـ trace id).
-- سجّلت `token="abc123"` عمدًا: ظهر `"token": "***MASKED***"`.
+- سجّلنا `token="abc123"` عمدًا: ظهر `"token": "***MASKED***"`.
 - التمرين: commit فيه token وهمي ثم commit يحذفه، و`git log -p -S` لسه يلقاه في التاريخ. حذفنا الـ commits
   قبل أي push. الدرس: **غيّر السر أولًا**، ثم نظّف التاريخ، ثم أضف فاحص.
 
