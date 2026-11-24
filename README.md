@@ -9,6 +9,14 @@ through SDAIA's [Athka X](https://athkax.sdaia.gov.sa) platform (أذكى إكس
 
 ![ci](https://github.com/4onn/fraud-service/actions/workflows/ci.yml/badge.svg)
 
+## Team
+
+| | Name | GitHub |
+|---|---|---|
+| <img src="https://github.com/4onn.png?size=48" width="48"> | Nawaf Alzomaia · نواف الزميع | [@4onn](https://github.com/4onn) |
+| <img src="https://github.com/wahibi404.png?size=48" width="48"> | Abdullah Alwohibi · عبدالله الوهيبي | [@wahibi404](https://github.com/wahibi404) |
+| <img src="https://github.com/HamadAlkeaid.png?size=48" width="48"> | Hamad Alkeaid · حمد الكعيد | [@HamadAlkeaid](https://github.com/HamadAlkeaid) |
+
 ## What it does
 
 A Saudi digital-payments provider needs every card transaction scored for fraud before it is
@@ -51,13 +59,10 @@ swapped (ONNX, a remote model server) by adding one adapter, and tests run with 
     curl -s localhost:8000/v1/ready
     curl -s localhost:8000/v1/predict -H "content-type: application/json" -d @payloads/sample.json
 
-Expected:
+    # -> {"fraud_probability":0.62614,"decision":"allow","model_version":"v3.2.0",...}
+    docker compose down
 
-    {"transaction_id":"TXN-2026-00042","fraud_probability":0.62614,"decision":"allow","model_version":"v3.2.0","trace_id":"..."}
-
-Stop with `docker compose down`.
-
-Or pull the published image instead of building it:
+Or pull the published image:
 
     docker pull ghcr.io/4onn/fraud-service:main      # Apple silicon: add --platform linux/amd64
 
@@ -151,15 +156,15 @@ and OIDC instead of stored cloud keys for deployment.
 
 `.github/workflows/ci.yml` runs on every pull request and on `main`:
 
-1. `lint` (ruff, mypy, import contract) and `test` (fast suite + coverage) in parallel
+1. `lint` (ruff, mypy, import contract), `test` (fast suite + coverage) and `secrets-scan` (gitleaks) in parallel
 2. `image-smoke`: builds the image, starts it, waits for readiness, sends a real request,
    checks the container runs as `appuser`
 3. `publish` (only on `main`): pushes to `ghcr.io/4onn/fraud-service`, tagged with the
    commit SHA and `main`
 
 `nightly.yml` runs the full suite, including the golden-file test, every night.
-`main` is protected: changes arrive only through pull requests with `lint`, `test` and
-`image-smoke` green. [Pull request #1](https://github.com/4onn/fraud-service/pull/1) shows a
+`main` is protected: changes arrive only through pull requests with `lint`, `test`,
+`secrets-scan` and `image-smoke` green. [Pull request #1](https://github.com/4onn/fraud-service/pull/1) shows a
 change that was blocked (a layer violation and the `hour <= 6` bug) and then fixed.
 
 ![Blocked pull request: lint and test failed, image-smoke and publish skipped](docs/img/blocked-pr-checks.png)
@@ -167,10 +172,6 @@ change that was blocked (a layer violation and the `hour <= 6` bug) and then fix
 | `lint` caught the layer violation | `test` caught the night-flag bug |
 |---|---|
 | ![ruff I001 on the out-of-layer import](docs/img/blocked-pr-lint.png) | ![test_night_flag_boundaries failed at hour 6](docs/img/blocked-pr-test.png) |
-
-Note: `# noqa: F401` hid the unused import from Ruff's F401 rule, but Ruff's import-order rule
-still flagged it. Had it not, the next step (`lint-imports`) would have rejected the
-`service → api` import as a broken layer contract.
 
 ## Extension: stricter firewall
 
@@ -192,15 +193,7 @@ but a client in Riyadh sending `+03:00` would have had `hour_of_day` and `is_nig
 in local time. `to_features()` now converts to UTC first; naive timestamps (batch CSV) are
 treated as UTC, so the golden file still reproduces 5,000/5,000.
 
-Try it:
-
-    docker compose up --build -d
-    for f in amount_numeric_string amount_boolean timestamp_no_timezone timestamp_date_only; do
-      curl -s localhost:8000/v1/predict -H "content-type: application/json" \
-           -d @payloads/malformed/$f.json; echo
-    done
-
-Covered by four new bodies in `payloads/malformed/` (integration) and `tests/unit/test_schemas.py`.
+Covered by four new bodies in `payloads/malformed/` and `tests/unit/test_schemas.py`.
 
 **Contract change note.** Tightening a field is a breaking change for any client that relied on
 the coercion. It stays in `/v1` because the service has no production consumers yet. After
@@ -210,17 +203,7 @@ retired with `Deprecation` and `Sunset` headers once its traffic reaches zero.
 ## Model, journal, benchmarks and decisions
 
 - [MODEL_CARD.md](MODEL_CARD.md): what goes in, what comes out, how good the model is (AUC 0.857) and where it fails.
-- [JOURNAL.md](JOURNAL.md): one entry per stage: what I asked, what was built, what I checked.
+- [JOURNAL.md](JOURNAL.md): one entry per stage: what we asked, what was built, what we checked.
 
 See [BENCHMARKS.md](BENCHMARKS.md) (image sizes, build times, latency, memory, CI timings)
 and [DECISIONS.md](DECISIONS.md) (five engineering decisions and the reasons behind them).
-
-## Workshop material
-
-The lab guides used to build this service are in [`labs/`](labs/) (English and Arabic).
-Workshop site: https://aie113.ibrahimalshehri.sa
-
-## Authors
-
-- Nawaf Alzomaia · [github.com/4onn](https://github.com/4onn)
-- Abdullah Alwohibi · [github.com/wahibi404](https://github.com/wahibi404)

@@ -1,6 +1,6 @@
 # Project journal · سجل المشروع
 
-**Group · المجموعة:** نواف الزميع · عبدالله الوهيبي
+**Group · المجموعة:** نواف الزميع · عبدالله الوهيبي · حمد الكعيد
 **AI coding agent · الوكيل:** Claude (Opus 5.5) in the Claude app; we ran every command ourselves in the Terminal.
 **Track · المسار:** fraud (built on the workshop's fraud-scoring labs)
 **Repository · المستودع:** https://github.com/4onn/fraud-service
