@@ -119,15 +119,31 @@ real values; `.env` is git-ignored and excluded from the image by `.dockerignore
 Logs are JSON on stdout, in UTC, with `trace_id` and `model_version`; sensitive keys are masked
 and no personal data is logged. See [INCIDENT.md](INCIDENT.md) for the secret-leak runbook.
 
+### Secrets, layer by layer
+
+| Where a secret could leak | What stops it |
+|---|---|
+| A local commit | `pre-commit` runs gitleaks before every commit (`pre-commit install` once) |
+| A pull request or `main` | The `secrets-scan` job (gitleaks, action pinned to a commit SHA) is a required check |
+| A push to GitHub | GitHub secret scanning and push protection are enabled on the repository |
+| The image | `.dockerignore` excludes `.env` and `*.env`; settings arrive as environment variables at run time |
+| The logs | Sensitive keys (`token`, `password`, `secret`...) are replaced by `***MASKED***` |
+| The settings object | `registry_token` is a `SecretStr`: printing the settings shows `**********` |
+| CI credentials | Only GitHub's short-lived `GITHUB_TOKEN`; `packages: write` is granted to the `publish` job alone |
+
+Next step if the service gets real secrets: SOPS with age to keep them encrypted in the repository,
+and OIDC instead of stored cloud keys for deployment.
+
 ## Tests
 
-    pytest -m "not slow"        # every commit: 82 tests in about 1 s, branch coverage gate 80%
+    pytest -m "not slow"        # every commit: unit, integration, behavioural and data checks, coverage gate 80%
     pytest                      # everything, including the golden-file test (~9 s)
 
 | Level | What it checks |
 |---|---|
 | Unit (27) | Decision bands at their exact boundaries, feature logic (night flag at hour 6, UTC normalisation), scorer wiring with a fake model, typed settings, the strict wire contract |
 | Integration (50) | The HTTP contract through `TestClient`; all 44 bodies in `payloads/malformed/` are rejected; readiness and error envelope |
+| Data (9) | The data files themselves: expected columns, no missing values, unique IDs, amounts inside the API contract, known channels, timezone on every timestamp, golden file aligned with the transactions |
 | Behavioural | Against the real model: the score does not change with merchant casing or IDs (invariance); a much larger amount never looks safer (direction); all 5,000 golden scores reproduce |
 
 ## Pipeline
@@ -190,7 +206,10 @@ the coercion. It stays in `/v1` because the service has no production consumers 
 launch, the same change would ship as `/v2`, run side by side with `/v1`, and `/v1` would be
 retired with `Deprecation` and `Sunset` headers once its traffic reaches zero.
 
-## Benchmarks and decisions
+## Model, journal, benchmarks and decisions
+
+- [MODEL_CARD.md](MODEL_CARD.md): what goes in, what comes out, how good the model is (AUC 0.857) and where it fails.
+- [JOURNAL.md](JOURNAL.md): one entry per stage: what I asked, what was built, what I checked.
 
 See [BENCHMARKS.md](BENCHMARKS.md) (image sizes, build times, latency, memory, CI timings)
 and [DECISIONS.md](DECISIONS.md) (five engineering decisions and the reasons behind them).
