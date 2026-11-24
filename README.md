@@ -4,7 +4,8 @@ A containerised machine-learning service that scores card transactions for fraud
 and answers **allow**, **review** or **block**.
 
 Built in the training program **SDA-AIE-113 · Software Engineering Practices for AI Systems**
-at [SDAIA Academy](https://github.com/SDAIAAcademy), November 2026.
+at [SDAIA Academy](https://github.com/SDAIAAcademy), November 2026,
+through SDAIA's [Athka X](https://athkax.sdaia.gov.sa) platform (أذكى إكس).
 
 ![ci](https://github.com/4onn/fraud-service/actions/workflows/ci.yml/badge.svg)
 
